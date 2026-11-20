@@ -1,0 +1,30 @@
+{
+  "name": "aaron-agent",
+  "version": "1.0.0",
+  "description": "Expert Research Agent",
+  "keywords": [
+    "ai",
+    "ai",
+    "agent",
+    "research",
+    "research",
+    "agent",
+    "llm",
+    "openai",
+    "api",
+    "nodejs"
+  ],
+  "license": "ISC",
+  "author": "Andhana Utama",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.4.2",
+    "deepagents": "^1.17.0",
+    "dotenv": "^18.0.10",
+    "langchain": "^1.6.7"
+  }
+}
