@@ -1,10 +1,11 @@
 {
   "name": "aaron-agent",
-  "module": "index.ts",
+  "module": "src/index.ts",
   "type": "module",
   "private": true,
   "scripts": {
     "dev": "bun run src/index.ts",
+    "studio": "mastra dev",
     "build": "mastra build"
   },
   "devDependencies": {
