@@ -5,6 +5,9 @@ import { weatherTool } from "../tools/weather-tool";
 export const weatherAgent = new Agent({
   id: "weather-agent",
   name: "Weather Agent",
+  // The orchestrator reads this description to decide when to delegate here.
+  description:
+    "Reports the current weather (temperature, feels-like, humidity, wind, gusts, conditions) for a named city and suggests activities that suit it. Needs a city name. Current conditions only: it has no forecast or historical data, so send questions about tomorrow, the weekend, or past weather to a web research specialist.",
   instructions: `You are a helpful weather assistant that provides accurate weather information and can help planning activities based on the weather.
 
 Your primary function is to help users get weather details for specific locations. When responding:

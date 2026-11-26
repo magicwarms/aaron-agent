@@ -7,12 +7,14 @@ import {
   SensitiveDataFilter,
 } from "@mastra/observability";
 import { weatherWorkflow } from "./workflows/weather-workflow";
+import { onboardingWorkflow } from "./workflows/onboarding-workflow";
 import { MongoDBStore } from "@mastra/mongodb";
 import { agent } from "./agents/agent";
+import { team } from "./agents/team";
 
 export const mastra = new Mastra({
-  workflows: { weatherWorkflow },
-  agents: { agent },
+  workflows: { weatherWorkflow, onboardingWorkflow },
+  agents: { agent, ...team },
   storage: new MongoDBStore({
     id: "mongodb-storage",
     uri: process.env.MONGODB_URI,
