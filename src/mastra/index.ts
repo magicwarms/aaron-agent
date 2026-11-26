@@ -1,8 +1,5 @@
 import { Mastra } from "@mastra/core/mastra";
 import { PinoLogger } from "@mastra/loggers";
-import { LibSQLStore } from "@mastra/libsql";
-import { DuckDBStore } from "@mastra/duckdb";
-import { MastraCompositeStore } from "@mastra/core/storage";
 import {
   Observability,
   MastraStorageExporter,
@@ -10,23 +7,16 @@ import {
   SensitiveDataFilter,
 } from "@mastra/observability";
 import { weatherWorkflow } from "./workflows/weather-workflow";
-import { weatherAgent } from "./agents/weather-agent";
+import { MongoDBStore } from "@mastra/mongodb";
+import { agent } from "./agents/agent";
 
 export const mastra = new Mastra({
   workflows: { weatherWorkflow },
-  agents: { weatherAgent },
-  storage: new MastraCompositeStore({
-    id: "composite-storage",
-    default: new LibSQLStore({
-      id: "mastra-storage",
-      // Uses a hosted database when deployed (mastra env db create --kind turso),
-      // and a local file during development.
-      url: process.env.TURSO_DATABASE_URL ?? "file:./mastra.db",
-      authToken: process.env.TURSO_AUTH_TOKEN,
-    }),
-    domains: {
-      observability: await new DuckDBStore().getStore("observability"),
-    },
+  agents: { agent },
+  storage: new MongoDBStore({
+    id: "mongodb-storage",
+    uri: process.env.MONGODB_URI,
+    dbName: process.env.MONGODB_DB_NAME!,
   }),
   logger: new PinoLogger({
     name: "Mastra",

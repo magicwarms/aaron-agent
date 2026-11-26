@@ -1,0 +1,101 @@
+import { pathToFileURL } from "node:url";
+import { Agent } from "@mastra/core/agent";
+import { TaskSignalProvider } from "@mastra/core/signals";
+import { askUserTool } from "@mastra/core/tools";
+import {
+  LocalFilesystem,
+  LocalSandbox,
+  WORKSPACE_TOOLS,
+  Workspace,
+} from "@mastra/core/workspace";
+import { Memory } from "@mastra/memory";
+import { startScheduleTool, stopScheduleTool } from "./../tools/schedule-tools";
+import { researchAgent } from "./research-agent";
+import { TokenLimiterProcessor } from "@mastra/core/processors";
+import { weatherAgent } from "./weather-agent";
+
+const workspacePath = "workspace";
+
+const workspace = new Workspace({
+  id: "agent-workspace",
+  name: "Agent Workspace",
+  filesystem: new LocalFilesystem({
+    basePath: workspacePath,
+  }),
+  sandbox: new LocalSandbox({
+    workingDirectory: workspacePath,
+  }),
+  tools: {
+    [WORKSPACE_TOOLS.FILESYSTEM.WRITE_FILE]: {
+      requireReadBeforeWrite: true,
+    },
+    [WORKSPACE_TOOLS.FILESYSTEM.EDIT_FILE]: {
+      requireReadBeforeWrite: true,
+    },
+    [WORKSPACE_TOOLS.FILESYSTEM.DELETE]: {
+      requireApproval: true,
+    },
+  },
+});
+
+export const agent = new Agent({
+  id: "agent-orchestrator",
+  name: "Aaron",
+  description:
+    "A general-purpose assistant that can research, manage tasks, work with local files, run approved commands, and create recurring schedules.",
+  metadata: {
+    suggestedPrompts: [
+      "What's the weather in Austin this weekend?",
+      "What's the SPCX stock price right now?",
+      "Build a Japanese sakura festival landing page.",
+    ],
+  },
+  instructions: `You are a friendly starter agent for exploring what Mastra can do. Your name is: Colla. Help the user try useful capabilities, build small projects, answer current questions, and shape this harness into a starting point for future work.
+
+Suggested prompts: Get the weather forecast for your city; Create a Japanese Sakura festival page; Tell me the SPCX stock price now, then every minute.
+
+When the user greets you or does not have a specific task, invite them to try the suggested prompts.
+
+Ask concise questions when something is unclear or a good question could surface a useful insight.
+
+You lead a team of specialist agents:
+- researchAgent: searches the web and returns a bullet summary with sources. Delegate to it for current or factual questions (weather, prices, news, documentation).
+Handle everything else yourself: files, commands, schedules, and talking with the user.
+
+For local file changes, end with a plain-text URL using ${pathToFileURL(`${workspacePath}/`).href}; avoid Markdown links, localhost, /workspace, relative paths, and static-file servers.
+`,
+  model: process.env.OPENAI_MODEL as string,
+  defaultOptions: {
+    maxSteps: 100,
+    autoResumeSuspendedTools: true,
+  },
+  memory: new Memory({
+    options: {
+      messageHistory: { maxTokens: 5000 },
+      generateTitle: true,
+      observationalMemory: {
+        model: process.env.OPENAI_MODEL as string,
+      },
+      workingMemory: {
+        enabled: true,
+        scope: "resource",
+      },
+    },
+  }),
+  workspace,
+  agents: { researchAgent, weatherAgent },
+  tools: {
+    ask_user: askUserTool,
+    start_schedule: startScheduleTool,
+    stop_schedule: stopScheduleTool,
+  },
+  skills: ["../skills/caveman"],
+  signals: [new TaskSignalProvider()],
+  outputProcessors: [
+    new TokenLimiterProcessor({
+      limit: 5000,
+      strategy: "truncate",
+      countMode: "cumulative",
+    }),
+  ],
+});
