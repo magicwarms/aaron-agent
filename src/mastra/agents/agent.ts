@@ -10,10 +10,18 @@ import {
 } from "@mastra/core/workspace";
 import { Memory } from "@mastra/memory";
 import { startScheduleTool, stopScheduleTool } from "./../tools/schedule-tools";
-import { TokenLimiterProcessor } from "@mastra/core/processors";
+import {
+  ModerationProcessor,
+  PromptInjectionDetector,
+  TokenLimiterProcessor,
+  UnicodeNormalizer,
+} from "@mastra/core/processors";
 import { team } from "./team";
 import { onboardingWorkflow } from "../workflows/onboarding-workflow";
 import { OnboardingGate } from "../processors/onboarding-gate";
+import { MongoDBStore, MongoDBVector } from "@mastra/mongodb";
+import { ModelRouterEmbeddingModel } from "@mastra/core/llm";
+import { QdrantVector } from "@mastra/qdrant";
 
 const workspacePath = "workspace";
 
@@ -140,6 +148,7 @@ Then answer in this structure, shortened for small matters:
 - When the user greets you or has no task, offer these:
 ${suggestedPrompts.map((prompt) => `  - ${prompt}`).join("\n")}
 - After creating or changing local files, end with a plain-text URL under ${pathToFileURL(`${workspacePath}/`).href}. For that URL, do not use Markdown links, localhost, /workspace, relative paths, or static-file servers.
+- Ask the user for clarification when the request is ambiguous.
 </style>
 
 <environment>
@@ -148,15 +157,47 @@ Time zone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}. Cron schedules u
 Operating system: ${process.platform === "win32" ? "Windows. Shell commands run in cmd.exe, so use cmd syntax" : process.platform}.
 </environment>`,
   model: process.env.OPENAI_MODEL as string,
+  inputProcessors: [
+    new ModerationProcessor({
+      model: process.env.OPENAI_MODEL as string,
+      categories: ["hate", "harassment", "violence"],
+      threshold: 0.7,
+      strategy: "block",
+    }),
+    new PromptInjectionDetector({
+      model: process.env.OPENAI_MODEL as string,
+      detectionTypes: ["prompt-injection", "jailbreak", "hidden-instructions"],
+      threshold: 0.7,
+      strategy: "block",
+    }),
+    new UnicodeNormalizer({
+      stripControlChars: true,
+      collapseWhitespace: true,
+    }),
+    new OnboardingGate(),
+  ],
   defaultOptions: {
     maxSteps: 100,
     autoResumeSuspendedTools: true,
   },
   memory: new Memory({
+    storage: new MongoDBStore({
+      id: "agent-storage",
+      uri: process.env.MONGODB_URI!,
+      dbName: process.env.MONGODB_DB_NAME!,
+    }),
+    vector: new QdrantVector({
+      id: "agent-vector",
+      url: process.env.QDRANT_URL,
+      apiKey: process.env.QDRANT_API_KEY,
+    }),
+    embedder: new ModelRouterEmbeddingModel("openai/text-embedding-3-small"),
     options: {
+      semanticRecall: true,
       messageHistory: { maxTokens: 5000 },
       generateTitle: true,
       observationalMemory: {
+        enabled: true,
         model: process.env.OPENAI_MODEL as string,
       },
       workingMemory: {
@@ -164,22 +205,21 @@ Operating system: ${process.platform === "win32" ? "Windows. Shell commands run 
         scope: "resource",
         // The profile labels match the onboarding workflow's questions.
         template: `# User Profile
-- Nickname:
-- Occupation:
-- Main goal:
-- Language and answer style:
+          - Nickname:
+          - Occupation:
+          - Main goal:
+          - Language and answer style:
 
-# Notes
-- Facts:
-- Active schedules (id and purpose):
-`,
+          # Notes
+          - Facts:
+          - Active schedules (id and purpose):
+        `,
       },
     },
   }),
   workspace,
   agents: team,
   workflows: { onboardingWorkflow },
-  inputProcessors: [new OnboardingGate()],
   tools: {
     ask_user: askUserTool,
     start_schedule: startScheduleTool,

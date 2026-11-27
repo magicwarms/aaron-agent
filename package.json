@@ -25,6 +25,7 @@
     "@mastra/memory": "^1.41.3",
     "@mastra/mongodb": "^1.28.0",
     "@mastra/observability": "^1.24.3",
+    "@mastra/qdrant": "^1.1.7",
     "express": "^5.3.0",
     "mastra": "^1.40.2",
     "zod": "^4"
